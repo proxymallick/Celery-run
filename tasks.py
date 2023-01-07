@@ -6,9 +6,15 @@ from celery import Celery
 #from celery import current_app
 #from celery.contrib.methods import task_method
 #CELERY_ACCEPT_CONTENT = ['pickle']
-app = Celery('tasks', broker='pyamqp://guest@localhost//')
-#app = Celery('vms', broker='redis://localhost', include=['cve.tasks','cpe.tasks'])
-#app = Celery('tasks', broker='redis://localhost:6379/0',result_backend = "redis://localhost/0")
+REDIS_BASE_URL = 'redis://localhost:6379'
+
+app = Celery('tasks', broker='redis://localhost:6379/0')
+#### This is currently working
+#app = Celery('tasks', broker='pyamqp://guest@localhost//')
+
+
+#app = Celery('tasks', backend='rpc://', broker='pyamqp://')
+#app = Celery('tasks', backend='redis://localhost', broker='pyamqp://')
 #####
 ## Author: PM 23/06/2021
 ## Generic Biobjective optimiser but can be easily adapted to multiobjective by 
@@ -33,7 +39,8 @@ seed_generator = 1
 #tf.enable_eager_execution()
 
 values = []
-param=[]
+ValuesOfParam = []
+#param=[]
 method = 'SLSQP'
 bounds = [[0.5326,2.2532]] # [[-1.e2,1.e2]] # 
 gamma_step = 1/(3*(np.sqrt(200)))
@@ -48,12 +55,25 @@ n =(objectives)+3
 beta = 1.1
 restrictivePref  =False
 init_guess = np.random.uniform( bounds[0][0],bounds[0][1] ) #1
-storeP = []
+storeP = []#for helping me out.
 P = None
 args = None
 
+
+
+import xlwt
+
+wb = xlwt.Workbook()
+worksheet = wb.add_sheet('Sheet 1')
+
+#LIDAR_RES = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+
+
+
+
 @app.task()
 def runAggregateObjFunc(serialisable):
+    global ValuesOfParam
     args = json.loads(serialisable)
     gamma1 = args['gamma1']
     gamma_step = args['gamma_step']
@@ -69,6 +89,7 @@ def runAggregateObjFunc(serialisable):
     
     #individual_returns = args['individual_returns']
     frontier = []
+    #pdb.set_trace()
     for gamma2 in np.arange(0, 1 - gamma1 + gamma_step, gamma_step):
         #gamma3 = 1-gamma1-gamma2
         
@@ -118,6 +139,13 @@ def runAggregateObjFunc(serialisable):
                 #p = Pool(4)
                 #pdb.set_trace()
                 result =  minimize(  normalisedWeightFunction, init_guess,args = (args,),method= method,bounds=bounds,   options = {'maxiter': 1000,'disp':False})  
+                #data = [1234.342,23, 55.44257, 777.5733463467, 9.9999, 98765.98765]
+                f = open("output.txt", "a+")
+                #for d in data:
+                f.write(f"{ float(result['x'])  }\n")
+
+                f.close()
+
             except ValueError as e:
                 result = {"success": False, "message": str(e)}
         else:
@@ -128,9 +156,9 @@ def runAggregateObjFunc(serialisable):
             except ValueError:
                 result = {"success": False}
 
-        param.append(result['x'])  
-    #print(param)        
-    return result                    
+        #ValuesOfParam.append(result['x'])  
+    #print(ValuesOfParam)        
+    return result['x']                    
 
 
 def normalisedWeightFunction(weights ,args ):
