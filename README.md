@@ -1,3 +1,3 @@
 # Celery-run
 
-## A multi-objective optimisation routine
+## A simple multi-objective optimisation routine
